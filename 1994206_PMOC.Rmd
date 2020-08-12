@@ -1,0 +1,677 @@
+---
+title: "Assignment-1"
+output:
+  pdf_document:
+    toc: no
+  html_document:
+    highlight: espresso
+    theme: paper
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(afex)
+library(rtdists)
+library(cowplot)
+library(emmeans)
+library(doSNOW)
+library(foreach)
+library(ggpubr)
+
+load("4_para_model.rda")
+load("DF_for_plot.rda")
+load("anova_df.rda")
+
+
+p1 <- ggscatter(data = res_multi_check, x = "acc_blast_ez", y = "obs_blast_ez", color = "blue", add = "reg.line", facet.by = "Exp", xlab = "Predicted Accuracy - Blast Easy", ylab = "Observed Accuracy", add.params = list(color = "red"), fullrange = T, conf.int = T, ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+ 
+p2 <-  ggscatter(data = res_multi_check, x = "acc_nonblast_ez", y = "obs_nonblast_ez", color = "blue", add = "reg.line", facet.by = "Exp", xlab = "Predicted Accuracy - Non-Blast Easy", ylab = "Observed Accuracy", add.params = list(color = "red"), fullrange = T, conf.int = T, ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+ 
+p3 <- ggscatter(data = res_multi_check, x = "acc_blast_hd", y = "obs_blast_hd", color = "blue", add = "reg.line", facet.by = "Exp", xlab = "Predicted Accuracy - Blast Hard", ylab = "Observed Accuracy", add.params = list(color = "red"), fullrange = T, conf.int = T, ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+p4 <- ggscatter(data = res_multi_check, x = "acc_nonblast_hd", y = "obs_nonblast_hd", color = "blue", add = "reg.line", facet.by = "Exp", xlab = "Predicted Accuracy - Non-Blast Hard", ylab = "Observed Accuracy", add.params = list(color = "red"), fullrange = T, conf.int = T, ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+p5 <- ggscatter(data = res_multi_check, x = "bl_ez_rt", y = "obs_bl_ez_rt", color = "blue", add = "reg.line", facet.by = "Exp", xlab = "Predicted mean RT - Blast Easy", ylab = "Observed mean RT", add.params = list(color = "red"), fullrange = T, conf.int = T, ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+p6 <- ggscatter(data = res_multi_check, x = "bl_ez_rt", y = "obs_bl_ez_rt", color = "blue", add = "reg.line", facet.by = "Exp", xlab = "Predicted mean RT - Non-Blast easy",ylab = "Observed mean RT", add.params = list(color = "red"), fullrange = T, conf.int = T, ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+p7 <- ggscatter(data = res_multi_check, x = "bl_hd_rt", y = "obs_bl_hd_rt", color = "blue", add = "reg.line", facet.by = "Exp", xlab = "Predicted mean RT - Blast Hard", ylab = "Observed mean RT", add.params = list(color = "red"), fullrange = T, conf.int = T, ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+p8 <- ggscatter(data = res_multi_check, x = "nbl_hd_rt", y = "obs_nbl_hd_rt", color = "blue", add = "reg.line", facet.by = "Exp", xlab = "Predicted mean RT - Non-Blast Hard",ylab = "Observed mean RT", add.params = list(color = "red"), fullrange = T, conf.int = T, ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+for_plot <- anova_tb_check %>% mutate(Difficulty = ifelse(Difficulty == "e","Easy","Hard"), Classification = ifelse(Classification == "blast","Blast","Non-Blast"))
+
+for_plot$Group <- for_plot$Exp
+
+
+```
+
+
+
+                                                Section 1
+-----------------------------------------------------------------------------------------------------------------
+
+This study has two interesting research questions to answer in the context of medical decision making. First is to find out if the Drift Diffusion Model (DDM) can describe real-life medical decision making for both medical professionals and novices. If yes, how do the cognitive processes underlying medical decision making differ between experts and novices? To answer these questions, we recruited 55 participants, of which 18 were medical professionals (Experts), and 37 were not (Novices). Each participant did 200 trials of image classification. The task of the participants was to judge whether pictures of blood cells show cancerous cells (blast cells) or non-cancerous cells (non-blast cells). Among these images, some were rated as Easy and some as Hard by an additional group of experts.  
+
+
+
+```{r}
+
+
+plot_grid(p1,p2,p3,p4,ncol = 2)
+
+
+```
+Figure 1: Scatterplot showing the relation between the predicted and observed accuracy of individuals.
+
+
+
+
+Before fitting the diffusion model to the data, we cleaned the data to exclude NA values and trials that were either too fast (<250ms) or too slow (>2.5s). Such exclusions are not uncommon since DDM is a model of speeded decision making and does not work well for extreme decision times. During this process, we found 16 trials that had NAs, seven trials with response time lesser than 250 ms and 230 trials that were greater than 2.5s. In total, a small fraction of the overall dataset (2.15% to be precise) was excluded before fitting the model, with an average number of trials being 195 per participant. We used a nine parameter drift-diffusion model to estimate the individual-level parameters. The parameters that we estimated were threshold (a), bias (z), non-decision time (t0), inter-trial-variability of drift rate (sv), inter-trial-variability of non-decision time (st0) and four variants of the drift rate, one for each level of Classification (Blast/Non-Blast) and Difficulty (Easy/Hard). To ensure the robustness of our results, we did 5 model fittings, each with a different random starting point to avoid the problem of local optimum and also removed the fits that were not identifiable. 
+
+To answer our first research question, 1) we use the estimated parameters for each individual (*N*=55) to generate a prediction about their accuracy (i.e. the proportion of correct responses) and mean RT, 2) compared those predictions with the accuracy and mean RT observed in the data for each individual. As we can see from Figure 1, the correlation between the predicted and observed accuracy is really high, with slightly lesser value for Experts for whom we have few data points when segregated across all the categories. Furthermore, we also correlated the predicted and observed mean Response Time, as shown in Figure 2. Thus, the model does a good job of fitting the observed data and captures some of the critical patterns in the data.
+
+
+
+```{r}
+plot_grid(p5,p6,p7,p8,ncol = 2)
+```
+
+Figure 2: Scatterplot showing the relation between the predicted and observed mean RT of individuals.
+
+
+
+
+To examine the second research question, we first analyzed the drift rate using a 3-way repeated-measures ANOVA with Group as the between-subjects factor, and Classification & Difficulty as within-subject factors. Before running the ANOVA, we looked at some descriptive statistics in the data. We found that, Non-Blast Hard seems to be the most challenging classification for both Experts ((Mean drift - $µ_d$ = 0.98) and Novices ($µ_d$ = 0.69) compared to Blast Hard ($µ_d$ = 3.21 for Experts, $µ_d$ = 1.71 for Novices). Interestingly, Non-Blast Hard is the most difficult for Novices ($µ_d$ = 0.69) , while the easiest being Non-Blast easy ($µ_d$ = 2.74) and not Blast easy ($µ_d$ = 2.53) which is the opposite of what we observe in Experts.
+
+
+
+The 3-way ANOVA showed significant main effect of Group, *F*(1,53) = 13.46, *p* < 0.001, Classification , *F*(1,53) = 5.37, *p* = 0.02 and Difficulty, *F*(1,53) = 128.28, *p* < 0.001. Moreover, we also found a significant 3-way interaction between Group, Classification and Difficulty, *F*(1,53) = 4.51, *p* = 0.03. This means that the pattern of 2-way interactions (Group:Difficulty, *F*(1,53) = 9.40, *p* = 0.003; Group:Classification, *F*(1,53) = 1.48, *p* = 0.22) in our model depends on the level of third factor. Since our research hypothesis is concerned only with the difference between Experts and Novices (i.e. Effect of Group), it does not matter which factor we choose to split our data along for the follow-up test. So, we split data along the Classification factor and observed how the 2-way interaction between Group and Difficulty varied. All follow-up tests were corrected using Bonferroni-Holm correction. We found that the interaction between Group and Difficulty was significant in both levels of Classification. Group:Difficulty, *F*(1,53) = 6.09, *p* = 0.03 for Blast and Group:Difficulty, *F*(1,53) = 9.66, *p* = 0.01 for Non-Blast. We also observed that the main effect of Group was significant in both conditions of Classification, *F*(1,53) = 10.05, *p* = 0.01 for Blast and *F*(1,53) = 4.39, *p* = 0.04 for Non-Blast. Since the two-way interactions are significant in both the cases, we need to analyze further to see if the effect of Group is present in all the levels of Difficulty. The results show that the effect of Group was significant in all categories, except Non-Blast Hard,  *F*(1,53) = 0.51, *p* = 0.47. This is also consistent with the descriptive statistic that we saw earlier, where the difference between Experts and Novices was the least in Non-Blast Hard category. Thus, the ANOVA shows that there is a significant effect of Group on Drift rate in all categories except Non-Blast Hard. Furthermore, we also ran One-way ANOVAs to check the differences between Experts and Novices in other cognitive processes. We found a significant main effect of Group, *F*(1,53) = 40.86, *p* < 0.001 in Threshold separation (a) and no significant effect in other parameter estimates (*p* = 0.8 for t0, *p* = 0.08 for st0 and *p* = 0.62 for sv). 
+
+
+
+
+ 
+```{r}
+
+ggboxplot(for_plot, x = "Exp", y = "Drift",
+  fill = "Difficulty", palette = "simpsons",
+  facet.by = "Classification", short.panel.labs = FALSE, ggtheme = theme_gray(), xlab = "Group", ylab = "Drift Rate")
+
+```
+Figure 3: Box plot representing Drift Rate with all the grouping variables considered
+
+
+
+
+Thus, we conclude that Drift diffusion model does describe the real-life medical decision making for both Experts and Novices and we do find some significant differences between them in terms of Drift rates and the caution with which they make a decision. Experts have high-quality evidence accumulation in these perceptual tasks compared to the Novices and are significantly more cautious than Novices, which is reflected in their high threshold boundary. 
+
+
+
+
+
+
+
+
+Section-2
+--------------
+
+```{r, echo=TRUE}
+library(tidyverse)
+library(afex)
+library(rtdists)
+library(cowplot)
+library(emmeans)
+library(doSNOW)
+library(foreach)
+library(ggpubr)
+
+data <- read.csv("medical_dm.csv")
+#str(data)
+data <- data %>% select(-c("stimulus", "block"))
+
+nas <- which(is.na(data))
+data[which(is.na(data)),] #16 NA values found
+data_nested <- data %>% group_by(id,group) %>% nest() %>% ungroup()
+#18 Experts, 37 Novices
+data_nested$key <- c(1:55) 
+data_nested <- data_nested %>% mutate(Groups = ifelse(group == "novice", 1, 2), 
+                                      Groups = factor(Groups, levels = c(1:2), 
+                                                      labels = c("Novice","Experts")))
+data <- data_nested %>% unnest()
+
+data <- data[complete.cases(data),] #16 NA values removed
+
+a <- data %>% group_by(group, id) %>% count()
+unique(a$n) #200 counts for all participants
+#Id's are not unique
+
+data <- data %>% mutate(responses = ifelse(classification == response, 2,1), 
+                        responses = factor(responses, levels = c(1:2), 
+                                           labels = c("Lower","Upper"))) 
+data %>% filter(rt < 0.25) %>% count() #7 response times lesser than 250ms
+data %>% filter(rt > 2.5) %>% count() #230 response times greater than 2.5s
+data <- data %>% filter(rt > 0.25 & rt < 2.5) #Removing response times outside the bound
+
+data_medical <- data %>% select(-c("id", "group", "trial")) %>% mutate(key = factor(key))
+data_medical %>% group_by(key) %>% nest()
+#Data cleaning done
+
+
+```
+
+
+
+
+```{r echo=TRUE}
+#Model Fitting - 7 paramter model
+
+#Log likelihood estimation
+wrapper <- function(pars, rt, response, classification){
+
+  data <- data.frame(rt = rt, response = response, 
+                     classification = classification)
+  data_blast <- data %>% filter(classification == "blast")
+  data_nonblast <- data %>% filter(classification == "non-blast")
+
+ ll_blast <-  ddiffusion(data_blast$rt,data_blast$response, 
+                         a= pars['a'], v=pars['v_blast'], t0=pars['t0'],
+                         z= pars['z'], sv = pars['sv'], st0 = pars['st0'])
+ ll_nonblast <- ddiffusion(data_nonblast$rt,data_nonblast$response, 
+                           a= pars['a'], v=pars['v_nonblast'], t0=pars['t0'], 
+                           z= pars['z'], sv = pars['sv'], st0 = pars['st0'])
+
+    #Getting the vector to check for zero likelihood
+
+    if(any(ll_blast == 0) || any(ll_nonblast == 0)){return(1e6)}
+ #Zero log leads to +Inf, hence 1e6
+
+    return(-sum(log(ll_blast)) - sum(log(ll_nonblast)))
+  }
+
+#Starting Values
+get_start_values <- function() {
+  c(
+    a = runif(1, 0.5, 3),
+    v_blast = rnorm(1, 0, 2),
+    v_nonblast = rnorm(1, 0, 2),
+    t0 = runif(1, 0, 0.5),
+    z = runif(1,0.4,0.6),
+    sv = runif(1,0,0.5),
+    st0 = runif(1,0,0.5)
+  )
+}
+
+start.time <- Sys.time()
+cl <- makeCluster(6, type = "SOCK")
+#My computer has 8 processors, so i am using 6 here.Change it according to the computer.
+registerDoSNOW(cl)
+
+ res_multi_2 <- data_medical %>%
+   group_by(key) %>%
+   nest() %>%
+   mutate(fits = map(data,~foreach(1:5, .packages = c('tidyverse', 'rtdists'),
+                                   .export = c("get_start_values","wrapper"))
+                     %dopar% {nlminb(get_start_values(), wrapper, rt = .$rt,
+                                     response = .$responses,
+                                     classification = .$classification,
+                                     lower = c(0,-Inf,-Inf,0,0,0,0))} %>%
+                       map_dfr(~as_tibble(cbind(t(.$par),logLik = -.$objective,
+                                                convergence = .$convergence)))))
+
+
+stopCluster(cl)
+totaltime <- Sys.time() - start.time
+totaltime #8 mins for the 7 paramter
+
+return_pars <- function(df) {
+  nc <- ncol(df)
+  mle <- df[which.max(df$logLik), -((nc-1):nc) ]
+  which_max <- which(round(max(df$logLik), 3) == round(df$logLik, 3))
+  ## exclude actual ML estimate:
+  which_max <- which_max[which_max != which.max(df$logLik)]
+  ## copy ML estimates
+  mle2 <- mle
+  ## remove all estimates that are not identifiable:
+  mle2[abs(mle - df[which_max[1], -((nc-1):nc) ]) > 0.01] <- NA
+  mle2
+}
+
+# res_multi_2 <- res_multi_2 %>%
+#   mutate(res = map(fits, return_pars)) %>%
+#   unnest(res)
+
+# save(res_multi_2, file = "2_para_model.rda")
+#load("2_para_model.rda")
+
+#Model adequacy
+accuracy_fn <- function(df) {
+  distribution_blast <- rdiffusion(200, a=df$a,v=df$v_blast, t0=df$t0, z=df$z, sv=df$sv, st0 = df$st0)
+  distribution_nonblast <- rdiffusion(200, a=df$a,v=df$v_nonblast, t0=df$t0, z=df$z, sv=df$sv, st0 = df$st0)
+
+  a <- distribution_blast %>% filter(response == "upper") %>% summarise(acc_blast = n()/nrow(distribution_blast))
+  b <- distribution_nonblast %>% filter(response == "upper") %>% summarise(acc_nonblast = n()/nrow(distribution_nonblast))
+  c <-  distribution_blast %>% summarise(blrt = mean(rt))
+  d <- distribution_nonblast %>% summarise(nblrt = mean(rt))
+  return(cbind(a,b,c,d))
+}
+
+
+obs_acc <- function(data) {
+  data_blast <- data %>% filter(classification == "blast")
+  data_nonblast <- data %>% filter(classification == "non-blast")
+
+  a <- data_blast %>% filter(responses == "Upper") %>% summarise(obs_blast = n()/nrow(data_blast))
+  b <- data_nonblast %>% filter(responses == "Upper") %>% summarise(obs_nonblast = n()/nrow(data_nonblast))
+  c <- data_blast %>% summarise(obs_blrt = mean(rt))
+  d <- data_nonblast %>% summarise(obs_nblrt = mean(rt))
+
+  return(cbind(a,b,c,d))
+}
+
+#res_multi_check <- res_multi_2 %>% nest(pars = c("a","z","v_blast","v_nonblast","t0","sv","st0"))
+#res_multi_check <- res_multi_check %>% mutate(acc_predicted = map(pars, accuracy_fn)) %>% 
+ #  unnest(acc_predicted)
+# res_multi_check <- res_multi_check %>% mutate(acc_observed = map(data, obs_acc))
+# #%>% unnest(acc_observed)
+# res_multi_check <- res_multi_check %>% unnest(acc_predicted,acc_observed)
+
+
+# p1 <- ggplot(data = res_multi_check, aes(x= acc_blast, y=obs_blast))+
+#   geom_point()+
+#   geom_smooth(method = "lm")
+# cor(res_multi_check$acc_blast, res_multi_check$obs_blast)
+# 
+# p2 <- ggplot(data = res_multi_check, aes(x= acc_nonblast, y=obs_nonblast))+
+#   geom_point()+
+#   geom_smooth(method = "lm")
+# cor(res_multi_check$acc_nonblast, res_multi_check$obs_nonblast)
+# 
+# p3 <- ggplot(data = res_multi_check, aes(x= blrt, y=obs_blrt))+
+#   geom_point()+
+#   geom_smooth(method = "lm")
+# 
+# p4 <- ggplot(data = res_multi_check, aes(x=nblrt, y=obs_nblrt))+
+#   geom_point()+
+#   geom_smooth(method = "lm")
+# 
+# cowplot::plot_grid(p1,p2,p3,p4)
+
+#ANOVA model
+
+# res_multi_check <- res_multi_check %>% nest(model_adeqacy = c("acc_blast","acc_nonblast","blrt","nblrt","obs_blast","obs_nonblast","obs_blrt","obs_nblrt"))
+# 
+# res_multi_check <- res_multi_check %>% unnest(pars)
+# experience <- c(rep("Expert",18),rep("Novice", 37))
+# 
+# res_multi_check$Exp <- experience
+# res_multi_check$Exp <- as.factor(res_multi_check$Exp)
+# 
+# anova_tbl <- res_multi_check %>% select(Exp, v_blast, v_nonblast, a,z,t0,sv,st0)
+# anova_tbl <- pivot_longer(anova_tbl, cols = c("v_blast", "v_nonblast"), 
+#                           names_to = "Classification", values_to = "Drift")
+#  
+# anova_tbl <- anova_tbl %>% select("key","Classification","Drift","Exp")
+# anova_tbl$Classification <- as.factor(anova_tbl$Classification)
+# 
+# set_sum_contrasts()
+# anova1 <- aov_ez("key","Drift", data = anova_tbl,between = "Exp", within = "Classification")
+# summary(anova1)
+# 
+# ggboxplot(anova_tbl, x = "Exp", y = "Drift",
+#   fill = "Classification", palette = "jco",
+#   short.panel.labs = FALSE, label.rectangle = T,
+#   ylab = "Drift_Rate", ggtheme = theme_gray())
+
+
+```
+
+
+```{r, echo=TRUE}
+#Model Fitting - 9 parameter model
+#Please Uncomment the code if you are running it in your computer
+
+#Log likelihood estimation
+wrapper <- function(pars, rt, response, classification,difficulty){
+
+  data <- data.frame(rt = rt, response = response, classification = classification, 
+                     difficulty = difficulty)
+  data_blast_easy <- data %>% filter(classification == "blast" & difficulty == "easy")
+  data_blast_hard <- data %>% filter(classification == "blast" & difficulty == "hard")
+  data_nonblast_easy <- data %>% filter(classification == "non-blast" & difficulty == "easy")
+  data_nonblast_hard <- data %>% filter(classification == "non-blast" & difficulty == "hard")
+
+ ll_blast_easy <-  ddiffusion(data_blast_easy$rt,data_blast_easy$response, 
+                              a= pars['a'], v=pars['v_blast_easy'], t0=pars['t0'], 
+                              z= pars['z'], sv = pars['sv'], st0 = pars['st0'])
+
+  ll_blast_hard <-  ddiffusion(data_blast_hard$rt,data_blast_hard$response,
+                               a= pars['a'], v=pars['v_blast_hard'], t0=pars['t0'], 
+                               z= pars['z'], sv = pars['sv'], st0 = pars['st0'])
+
+ ll_nonblast_easy <- ddiffusion(data_nonblast_easy$rt,data_nonblast_easy$response, 
+                                a= pars['a'], v=pars['v_nonblast_easy'], t0=pars['t0'], 
+                                z= pars['z'], sv = pars['sv'], st0 = pars['st0'])
+
+  ll_nonblast_hard <- ddiffusion(data_nonblast_hard$rt,data_nonblast_hard$response,
+                                 a= pars['a'], v=pars['v_nonblast_hard'], t0=pars['t0'],
+                                 z= pars['z'], sv = pars['sv'], st0 = pars['st0'])
+
+    #Getting the vector to check for zero likelihood
+
+    if(any(ll_blast_easy == 0) || 
+       any(ll_blast_hard == 0) || 
+       any(ll_nonblast_easy == 0) || 
+       any(ll_nonblast_hard == 0))
+      {return(1e6)}#Zero log leads to +Inf, hence 1e6
+
+    return(-sum(log(ll_blast_easy)) -sum(log(ll_blast_hard)) 
+           -sum(log(ll_nonblast_easy)) -sum(log(ll_nonblast_hard)))
+  }
+
+
+get_start_values <- function() {
+  c(
+    a = runif(1, 0.5, 3),
+    v_blast_easy = rnorm(1, 0, 2),
+    v_blast_hard = rnorm(1, 0, 2),
+    v_nonblast_easy = rnorm(1, 0, 2),
+    v_nonblast_hard = rnorm(1, 0, 2),
+    t0 = runif(1, 0, 0.5),
+    z = runif(1,0.4,0.6),
+    sv = runif(1,0,0.5),
+    st0 = runif(1,0,0.5)
+  )
+}
+
+start.time <- Sys.time()
+cl <- makeCluster(6, type = "SOCK")
+#My computer has 8 processors, so i am using 6 here. Change it according to the computer.
+registerDoSNOW(cl)
+```
+
+
+```{r, echo=TRUE}
+#Uncomment the following chunck if you are running the code
+#Fitting the model
+res_multi <- data_medical %>%
+  group_by(key) %>%
+  nest() %>%
+  mutate(fits = map(data,~foreach(1:5, .packages = c('tidyverse', 'rtdists'),
+                                  .export = c("get_start_values","wrapper")) %dopar%
+                      {nlminb(get_start_values(), wrapper,rt = .$rt, response = .$responses,
+                              classification = .$classification, difficulty = .$difficulty,
+                              lower = c(0,-Inf,-Inf,-Inf,-Inf,0,0,0,0))} %>%
+                      map_dfr(~as_tibble(cbind(t(.$par),logLik = -.$objective,
+                                               convergence = .$convergence)))))
+```
+
+
+```{r, echo=TRUE}
+stopCluster(cl)
+totaltime <- Sys.time() - start.time
+totaltime #23.73 mins for the 9 parameter model
+
+return_pars <- function(df) {
+  nc <- ncol(df)
+  mle <- df[which.max(df$logLik), -((nc-1):nc) ]
+  which_max <- which(round(max(df$logLik), 3) == round(df$logLik, 3))
+  ## exclude actual ML estimate:
+  which_max <- which_max[which_max != which.max(df$logLik)]
+  ## copy ML estimates
+  mle2 <- mle
+  ## remove all estimates that are not identifiable:
+  mle2[abs(mle - df[which_max[1], -((nc-1):nc) ]) > 0.01] <- NA
+  mle2
+}
+
+#Uncomment these lines too
+# res_multi <- res_multi %>%
+#   mutate(res = map(fits, return_pars)) %>%
+#   unnest(res)
+
+#save(res_multi, file = "4_para_model.rda")
+#load("4_para_model.rda")
+
+experience <- c(rep("Expert",18),rep("Novice", 37))
+res_multi$Exp <- experience
+res_multi$Exp <- as.factor(res_multi$Exp)
+
+
+#Model_adequacy
+accuracy_fn <- function(df) {
+  distribution_blast_easy <- rdiffusion(200, a=df$a,v=df$v_blast_easy, 
+                                        t0=df$t0, z=df$z, sv=df$sv, 
+                                        st0 = df$st0)
+  distribution_blast_hard <- rdiffusion(200, a=df$a,v=df$v_blast_hard,
+                                        t0=df$t0, z=df$z, sv=df$sv,
+                                        st0 = df$st0)
+  distribution_nonblast_easy <- rdiffusion(200, a=df$a,v=df$v_nonblast_easy, 
+                                           t0=df$t0, z=df$z, sv=df$sv, 
+                                           st0 = df$st0)
+  distribution_nonblast_hard <- rdiffusion(200, a=df$a,v=df$v_nonblast_hard, 
+                                           t0=df$t0, z=df$z, sv=df$sv,
+                                           st0 = df$st0)
+
+  a <- distribution_blast_easy %>% filter(response == "upper") %>% 
+    summarise(acc_blast_ez = n()/nrow(distribution_blast_easy))
+  
+  a1 <- distribution_blast_hard %>% filter(response == "upper") %>% 
+    summarise(acc_blast_hd = n()/nrow(distribution_blast_hard))
+  
+  b <- distribution_nonblast_easy %>% filter(response == "upper") %>% 
+    summarise(acc_nonblast_ez = n()/nrow(distribution_nonblast_easy))
+  
+  b1 <- distribution_nonblast_hard %>% filter(response == "upper") %>% 
+    summarise(acc_nonblast_hd = n()/nrow(distribution_nonblast_hard))
+  
+  c <-  distribution_blast_easy %>% summarise(bl_ez_rt = mean(rt))
+  c1 <- distribution_blast_hard %>% summarise(bl_hd_rt = mean(rt))
+  d <- distribution_nonblast_easy %>% summarise(nbl_ez_rt = mean(rt))
+  d1 <- distribution_nonblast_hard %>% summarise(nbl_hd_rt = mean(rt))
+  return(cbind(a,a1,b,b1,c,c1,d,d1))
+}
+
+# 
+obs_acc <- function(data) {
+  data_blast_easy <- data %>% 
+    filter(classification == "blast" & difficulty == "easy")
+  data_blast_hard <- data %>% 
+    filter(classification == "blast" & difficulty == "hard")
+  data_nonblast_easy <- data %>% 
+    filter(classification == "non-blast" & difficulty == "easy")
+  data_nonblast_hard <- data %>% 
+    filter(classification == "non-blast" & difficulty == "hard")
+
+  a <- data_blast_easy %>% filter(responses == "Upper") %>% 
+    summarise(obs_blast_ez = n()/nrow(data_blast_easy))
+  a1 <- data_blast_hard %>% filter(responses == "Upper") %>% 
+    summarise(obs_blast_hd = n()/nrow(data_blast_hard))
+  b <- data_nonblast_easy %>% filter(responses == "Upper") %>% 
+    summarise(obs_nonblast_ez = n()/nrow(data_nonblast_easy))
+  b1 <- data_nonblast_hard %>% filter(responses == "Upper") %>% 
+    summarise(obs_nonblast_hd = n()/nrow(data_nonblast_hard))
+  c <- data_blast_easy %>% summarise(obs_bl_ez_rt = mean(rt))
+  c1 <- data_blast_hard %>% summarise(obs_bl_hd_rt = mean(rt))
+  d <- data_nonblast_easy %>% summarise(obs_nbl_ez_rt = mean(rt))
+  d1 <- data_nonblast_hard %>% summarise(obs_nbl_hd_rt = mean(rt))
+
+  return(cbind(a,a1,b,b1,c,c1,d,d1))
+}
+
+#Uncomment these too
+# res_multi_check <- res_multi %>% nest(pars = c("a","z","v_blast_easy","v_blast_hard", "v_nonblast_easy","v_nonblast_hard","t0","sv","st0"))
+# res_multi_check <- res_multi_check %>% mutate(acc_predicted = map(pars, accuracy_fn)) 
+# #%>% unnest(acc_predicted)
+# res_multi_check <- res_multi_check %>% mutate(acc_observed = map(data, obs_acc)) 
+# #%>% unnest(acc_observed)
+# res <- res_multi_check
+# res_multi_check <- res_multi_check %>% unnest(c(acc_predicted,acc_observed)) 
+
+#save(res_multi_check, file = "DF_for_plot.rda")
+#load("DF_for_plot.rda")
+
+ p1 <- ggscatter(data = res_multi_check, x = "acc_blast_ez", y = "obs_blast_ez", color = "blue", 
+                 add = "reg.line", facet.by = "Exp", xlab = "Predicted Accuracy - Blast Easy",
+                 ylab = "Observed Accuracy", add.params = list(color = "red"), 
+                 fullrange = T, conf.int = T, ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+ 
+p2 <-  ggscatter(data = res_multi_check, x = "acc_nonblast_ez", y = "obs_nonblast_ez", 
+                 color = "blue", 
+                 add = "reg.line", facet.by = "Exp", xlab = "Predicted Accuracy - Non-Blast Easy", 
+                 ylab = "Observed Accuracy", add.params = list(color = "red"), 
+                 fullrange = T, conf.int = T, ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+ 
+p3 <- ggscatter(data = res_multi_check, x = "acc_blast_hd", y = "obs_blast_hd",
+                color = "blue", add = "reg.line", facet.by = "Exp",
+                xlab = "Predicted Accuracy - Blast Hard", ylab = "Observed Accuracy",
+                add.params = list(color = "red"), fullrange = T, conf.int = T,
+                ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+p4 <- ggscatter(data = res_multi_check, x = "acc_nonblast_hd", y = "obs_nonblast_hd", 
+                color = "blue", add = "reg.line", facet.by = "Exp", 
+                xlab = "Predicted Accuracy - Non-Blast Hard", ylab = "Observed Accuracy", 
+                add.params = list(color = "red"), fullrange = T, conf.int = T,
+                ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+p5 <- ggscatter(data = res_multi_check, x = "bl_ez_rt", y = "obs_bl_ez_rt", 
+                color = "blue", add = "reg.line", facet.by = "Exp", 
+                xlab = "Predicted mean RT - Blast Easy", ylab = "Observed mean RT", 
+                add.params = list(color = "red"), fullrange = T, conf.int = T, 
+                ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+p6 <- ggscatter(data = res_multi_check, x = "bl_ez_rt", y = "obs_bl_ez_rt",
+                color = "blue", add = "reg.line", facet.by = "Exp", 
+                xlab = "Predicted mean RT - Non-Blast easy",ylab = "Observed mean RT", 
+                add.params = list(color = "red"), fullrange = T, conf.int = T, 
+                ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+p7 <- ggscatter(data = res_multi_check, x = "bl_hd_rt", y = "obs_bl_hd_rt", 
+                color = "blue", add = "reg.line", facet.by = "Exp", 
+                xlab = "Predicted mean RT - Blast Hard", ylab = "Observed mean RT", 
+                add.params = list(color = "red"), fullrange = T, conf.int = T, 
+                ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+p8 <- ggscatter(data = res_multi_check, x = "nbl_hd_rt", y = "obs_nbl_hd_rt", 
+                color = "blue", add = "reg.line", facet.by = "Exp",
+                xlab = "Predicted mean RT - Non-Blast Hard",ylab = "Observed mean RT",
+                add.params = list(color = "red"), fullrange = T, conf.int = T, 
+                ggtheme = theme_gray())+
+  stat_cor(aes(label = paste(..rr.label..)))
+
+plot_grid(p1,p2,p3,p4,ncol = 2)
+plot_grid(p5,p6,p7,p8,ncol = 2)
+
+#Getting the ANOVA data frame ready
+anova_tbl <- res_multi %>% select(Exp, v_blast_easy,  v_blast_hard, v_nonblast_easy, 
+                                  v_nonblast_hard, a, z, t0, sv, st0)
+anova_tb_check <- anova_tbl
+anova_tb_check <- anova_tb_check %>% 
+  pivot_longer(cols = c("v_blast_easy", "v_blast_hard","v_nonblast_easy",
+                        "v_nonblast_hard"),
+               names_to = c("Classification","Difficulty"),  
+               names_pattern = "v_?(.*)_(.)", values_to = "Drift")
+
+anova_tb_check$Classification <- as.factor(anova_tb_check$Classification)
+anova_tb_check$Difficulty <- as.factor(anova_tb_check$Difficulty)
+
+#save(anova_tb_check,file = "anova_df.rda")
+#load("anova_df.rda")
+
+#Summary stats for ANOVA Data
+for_plot <- anova_tb_check %>% 
+  mutate(Difficulty = ifelse(Difficulty == "e","Easy","Hard"), 
+         Classification = ifelse(Classification == "blast","Blast","Non-Blast"))
+for_plot$Group <- for_plot$Exp
+for_plot %>% group_by(Exp, Classification, Difficulty) %>% summarise(Drift = mean(Drift))
+for_plot %>% group_by(Exp) %>% summarise(mean_a= mean(a),mean_z = mean(z), mean_t0 = mean(t0))
+
+#ANOVA models
+set_sum_contrasts()
+anova2 <- aov_ez("key","Drift", data = anova_tb_check, 
+                 within = c("Classification","Difficulty"), 
+                 between = "Exp")
+summary(anova2)
+
+ggboxplot(for_plot, x = "Exp", y = "Drift",
+  fill = "Difficulty", palette = "simpsons",
+  facet.by = "Classification", short.panel.labs = FALSE, 
+  ggtheme = theme_gray(), xlab = "Experience", ylab = "Drift Rate")
+
+#Follow-up tests.
+d_blast <- anova_tb_check %>% filter(Classification == "blast")
+d_nonblast <- anova_tb_check %>% filter(Classification == "nonblast")
+
+a_blast <- aov_ez("key","Drift", data = d_blast, 
+                  within = c("Difficulty"), between = "Exp")
+a_nonblast <- aov_ez("key","Drift", data = d_nonblast, 
+                     within = c("Difficulty"), between = "Exp")
+
+a_sep <- bind_rows(anova(a_blast), anova(a_nonblast))
+a_sep$`Pr(>F)` <- p.adjust(a_sep$`Pr(>F)`, method = "holm")
+a_sep
+#Exp-Difficulty interaction is significant in both blast and non-blast.
+#Further testing is required to see if the effect of Exp is dependent on difficulty.
+
+d_blast_ez <- d_blast %>% filter(Difficulty == "e")
+d_blast_hd <- d_blast %>% filter(Difficulty == "h")
+d_nonblast_ez <- d_nonblast %>% filter(Difficulty == "e")
+d_nonblast_hd <- d_nonblast %>% filter(Difficulty == "h")
+a_blast_ez <- aov_ez("key","Drift", data = d_blast_ez, between = "Exp")
+a_blast_hd <- aov_ez("key","Drift", data = d_blast_hd, between = "Exp")
+a_nonblast_ez <- aov_ez("key","Drift", data = d_nonblast_ez, between = "Exp")
+a_nonblast_hd <- aov_ez("key","Drift", data = d_nonblast_hd, between = "Exp")
+
+a_sep1 <- bind_rows(anova(a_blast_ez), anova(a_blast_hd),
+                    anova(a_nonblast_ez), anova(a_nonblast_hd))
+a_sep1$`Pr(>F)` <- p.adjust(a_sep1$`Pr(>F)`, method = "holm")
+a_sep1
+#Effect of Experience is not found only in Non-Blast,Hard category. All other cases, the effect of Exp is significant. 
+
+
+
+anova_z <- aov_ez("key","z",data = anova_tb_check, between = "Exp")
+summary(anova_z)
+emmeans(anova_z, specs = "Exp")
+
+anova_a <- aov_ez("key","a",data = anova_tb_check, between = "Exp")
+summary(anova_a)
+emmeans(anova_a, specs = "Exp")
+
+anova_t0 <- aov_ez("key","t0",data = anova_tb_check, between = "Exp")
+summary(anova_t0)
+emmeans(anova_t0, specs = "Exp")
+
+anova_sv <- aov_ez("key","sv",data = anova_tb_check, between = "Exp")
+summary(anova_sv)
+emmeans(anova_sv, specs = "Exp")
+
+anova_st0 <- aov_ez("key","st0",data = anova_tb_check, between = "Exp")
+summary(anova_st0)
+emmeans(anova_st0, specs = "Exp")
+
+
+```
+
+
+
+
